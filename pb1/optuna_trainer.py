@@ -3,10 +3,10 @@ import pytorch_lightning as pl
 from pytorch_lightning import Callback
 from optuna.integration import PyTorchLightningPruningCallback
 import torch
-from torch.optim import Adam, SGD
+from torch.optim import Adam, SGD, AdamW
 from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
-from pb1.model import Net
+from pb1.model import Net, build_config
 import torchvision
 
 import pb1.optuna_config as cfg
@@ -46,8 +46,16 @@ class LightningNet(pl.LightningModule):
             chosen_act = self.trial.suggest_categorical("Activation", net_config.suggest_activations)
         else:
             chosen_act = net_config.default_activations
-
-        self.model = Net(activation=chosen_act)
+        if net_config.suggest_activations is not None:
+            chosen_conv_layers = self.trial.suggest_categorical("Conv Layers", net_config.suggest_conv_layers)
+        else:
+            chosen_conv_layers = net_config.default_conv_layers
+        if net_config.suggest_linear_layers is not None:
+            chosen_linear_layers = self.trial.suggest_categorical("Linear layers", net_config.suggest_linear_layers)
+        else:
+            chosen_linear_layers = net_config.default_linear_layers
+        config = build_config(chosen_act, chosen_conv_layers, chosen_linear_layers)
+        self.model = Net(config=config)
 
     def configure_loss(self):
         # Loss choice
@@ -104,10 +112,10 @@ class LightningNet(pl.LightningModule):
             chosen_optimiser = self.trial.suggest_categorical("optimizer", optuna_config.suggest_optimiser)
             if chosen_optimiser == 'Adam':
                 return Adam(self.model.parameters(), lr=chosen_lr, weight_decay=chosen_weight_decay)
-            elif chosen_optimiser == 'SDG':
+            elif chosen_optimiser == 'SGD':
                 return SGD(self.model.parameters(), lr=chosen_lr, weight_decay=chosen_weight_decay)
         else:  # hard-coded default to Adam
-            return Adam(self.model.parameters(), lr=chosen_lr, weight_decay=chosen_weight_decay)
+            return AdamW(self.model.parameters(), lr=chosen_lr, weight_decay=chosen_weight_decay)
 
 
     def train_dataloader(self):

@@ -35,7 +35,7 @@ def main():
         print("    {}: {}".format(key, value))
 
     # dumps the study for use with dash_study.py
-    joblib.dump(study, 'optimization/study_lr_finished.pkl')
+    joblib.dump(study, 'study.pkl')
 
 
 if __name__ == "__main__":
