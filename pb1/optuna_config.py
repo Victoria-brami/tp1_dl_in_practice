@@ -33,11 +33,13 @@ class OptunaConfig(object):
         self.n_trials = 5  # 500          # will stop whenever the time or number of trials is reached
         # Computations for HyperBand configuration
         #n_iters = int(TrainDatasetConfig().num_data * ExecutionConfig().epochs / TrainDatasetConfig().batch_size)
+        n_iters = 60000 // 64
+        reduction_factor = int(round(np.exp(np.log(n_iters) / 4)))
         #reduction_factor = int(round(np.exp(np.log(n_iters) / 4)))  # for 5 brackets (see Optuna doc)
 
         self.n_jobs = 1  # number of parallel optimisations
-        #self.n_iters = n_iters
-        #self.reduction_factor = reduction_factor
+        self.n_iters = n_iters
+        self.reduction_factor = reduction_factor
         self.pruner = 'Hyperband'  # options: Hyperband, Median, anything else -> no pruner
 
         self.suggest_optimiser = None  # ['SGD', 'Adam', 'AdamW]default is hardcoded to Adam
@@ -49,8 +51,8 @@ class OptunaConfig(object):
         self.suggest_weight_decay = None #[0, 1e-5]
         self.default_weight_decay = 0.00
 
-        self.suggest_loss = None
-        self.default_loss = nn.BCELoss()
+        self.suggest_loss = ['bce', 'mse', 'l1', 'nll', 'cross_entropy']
+        self.default_loss = 'mse'
 
         self.suggest_batch_size = None
         self.default_batch_size = 64

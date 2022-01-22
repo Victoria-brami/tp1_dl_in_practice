@@ -1,5 +1,3 @@
-import os
-
 import torch.nn as nn
 import pytorch_lightning as pl
 from pytorch_lightning import Callback
@@ -8,7 +6,7 @@ import torch
 from torch.optim import Adam, SGD
 from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
-from pb1.model import ConvModel
+from pb1.model import Net
 import torchvision
 
 import pb1.optuna_config as cfg
@@ -34,46 +32,49 @@ class LightningNet(pl.LightningModule):
     def __init__(self, trial):
         super(LightningNet, self).__init__()
         self.trial = trial
-        self.setup_model()
-        self.setup_loss()
-        self.setup_datasets()
+        self.configure_batch_size()
+        self.configure_model()
+        self.configure_loss()
+        self.configure_datasets()
 
-    def setup_model(self):
+    def configure_batch_size(self):
+        self.batch_size = optuna_config.default_batch_size
+
+    def configure_model(self):
         # Net architecture
         if net_config.suggest_activations is not None:
             chosen_act = self.trial.suggest_categorical("Activation", net_config.suggest_activations)
         else:
             chosen_act = net_config.default_activations
 
-        if self.n_conv_layers
-        self.model = ConvModel(activation=chosen_act)
+        self.model = Net(activation=chosen_act)
 
-    def setup_loss(self):
+    def configure_loss(self):
         # Loss choice
         if optuna_config.suggest_loss is not None:
             chosen_loss = self.trial.suggest_categorical("Loss", optuna_config.suggest_loss)
         else:
             chosen_loss = optuna_config.default_loss
-        if chosen_loss == 'bce':
+        if chosen_loss.lower() == 'bce':
             self.loss = nn.BCELoss()
-        elif chosen_loss == 'l1':
+        elif chosen_loss.lower() == 'l1':
             self.loss = nn.L1Loss()
-        elif chosen_loss == 'cross_entropy':
+        elif chosen_loss.lower() == 'cross_entropy':
             self.loss = nn.CrossEntropyLoss()
-        elif chosen_loss == 'mse':
+        elif chosen_loss.lower() == 'mse':
             self.loss = nn.MSELoss()
-        elif chosen_loss == 'nll':
+        elif chosen_loss.lower() == 'nll':
             self.loss = nn.NLLLoss()
 
-    def setup_datasets(self):
+    def configure_datasets(self):
         # Define Train, Val and Test Datasets
-        self.dataset = torchvision.datasets.USPS(root='USPS/',
+        self.dataset = torchvision.datasets.USPS(root='../../TP1/USPS/',
                                             train=True,
                                             transform=transforms.ToTensor(),
                                             download=False)
         self.train_set, self.val_set = random_split(self.dataset, [6000, 1291])
 
-        self.test_set = torchvision.datasets.USPS(root='USPS/',
+        self.test_set = torchvision.datasets.USPS(root='../../TP1/USPS/',
                                                      train=False,
                                                      transform=transforms.ToTensor(),
                                                      download=False)
@@ -109,28 +110,36 @@ class LightningNet(pl.LightningModule):
             return Adam(self.model.parameters(), lr=chosen_lr, weight_decay=chosen_weight_decay)
 
 
-    def train_loader(self):
+    def train_dataloader(self):
         return DataLoader(self.train_set, self.batch_size, shuffle=True, num_workers=2)
 
-    def val_loader(self):
+    def val_dataloader(self):
         return DataLoader(self.val_set, self.batch_size, shuffle=False, num_workers=2)
 
-    def test_loader(self):
+    def test_dataloader(self):
         return DataLoader(self.test_set, self.batch_size, shuffle=False, num_workers=2)
 
 
     def training_step(self, batch, batch_idx):
         image, target = batch
         output = self.model(image)
-        return self.loss(output, target)
+        batch_size = target.shape[0]
+        labels_one_hot = torch.FloatTensor(batch_size, self.model.num_classes)
+        labels_one_hot.zero_()
+        labels_one_hot.scatter_(1, target.view(-1, 1), 1)
+        return self.loss(output, labels_one_hot)
 
     def validation_step(self, batch, batch_idx):
         image, target = batch
         output = self.model(image)
         pred = output.argmax(dim=1, keepdim=True)
         accuracy = pred.eq(target.view_as(pred)).float().mean()
-        self.log("val_acc", accuracy)
-        self.log("hp_metric", accuracy, on_step=False, on_epoch=True)
+        return accuracy
+
+    def validation_epoch_end(self, outputs) -> None:
+        # since the training step/validation step and test step are run on the IPU device
+        # we must log the average loss outside the step functions.
+        self.log("val_acc", torch.stack(outputs).mean(), prog_bar=True)
 
     def test_step(self, batch, batch_idx):
         x, y = batch
@@ -154,13 +163,13 @@ class LightningNet(pl.LightningModule):
 def objective(trial):
     model = LightningNet(trial)  # this initialisation depends on the trial argument
 
-    metrics_callback = MetricsCallback()
+    #metrics_callback = MetricsCallback()
     trainer = pl.Trainer(
         logger=True,
         checkpoint_callback=False,
         max_epochs=exec_config.epochs,
         gpus=1 if torch.cuda.is_available() else None,
-        callbacks=PyTorchLightningPruningCallback(trial, monitor="val_acc")]
+        callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_acc")]
     )
 
     trainer.fit(model)

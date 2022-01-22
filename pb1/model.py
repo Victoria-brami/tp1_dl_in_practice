@@ -44,9 +44,53 @@ class ConvModel(nn.Module):
 
 
 class Net(nn.Module):
-    def __init__(self, num_classes, output_dims):
+    def __init__(self, num_classes=10, activation='relu', n_conv_layers=4, output_dims=100):
         super().__init__()
         layers = []
+        self.num_classes = num_classes
+        conv1 = nn.Conv2d(1, 3, 3, padding=1)
+        conv2 = nn.Conv2d(3, 3, 3, padding=1)
+        conv3 = nn.Conv2d(3, 5, 3, padding=1)
+        conv4 = nn.Conv2d(5, 5, 3, padding=1)
+        fc1 = nn.Linear(80, output_dims)
+        fc2 = nn.Linear(output_dims, num_classes)
+        if activation == 'relu':
+            act1 = nn.ReLU()
+            act2 = nn.ReLU()
+            act3 = nn.ReLU()
+            act4 = nn.ReLU()
+            act5 = nn.ReLU()
+        elif activation == 'prelu':
+            act1 = nn.PReLU()
+            act2 = nn.PReLU()
+            act3 = nn.PReLU()
+            act4 = nn.PReLU()
+            act5 = nn.PReLU()
+
+        layers.append(conv1)
+        layers.append(act1)
+
+        layers.append(conv2)
+        layers.append(act2)
+        layers.append(nn.MaxPool2d(2, 2))
+        layers.append(conv3)
+        layers.append(act3)
+        layers.append(conv4)
+        layers.append(act4)
+        layers.append(nn.MaxPool2d(2, 2))
+        layers.append(nn.Flatten())
+        layers.append(fc1)
+        layers.append(act5)
+        layers.append(fc2)
+        self.layers = nn.Sequential(*layers)
+        self.softmax = nn.Softmax()
+
+    def forward(self, x):
+        x = self.layers(x)
+        x = self.softmax(x)
+        return x
+
+"""
 
         input_dim: int = 28 * 28
         for output_dim in output_dims:
@@ -59,6 +103,4 @@ class Net(nn.Module):
 
         self.layers = nn.Sequential(*layers)
 
-    def forward(self, x):
-        x = self.layers(x)
-        return nn.Softmax(x)
+"""

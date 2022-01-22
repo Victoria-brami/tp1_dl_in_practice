@@ -1,7 +1,6 @@
-import optuna
 import ray
+import logging
 from pb1.optuna_trainer import *
-
 
 def main():
     if optuna_config.pruner == 'Hyperband':
@@ -16,7 +15,7 @@ def main():
         pruner = optuna.pruners.NopPruner()
 
     # initialise the multiprocessing handler
-    ray.init(num_cpus=val_config.num_workers, num_gpus=exec_config.gpus, logging_level=logging.CRITICAL,
+    ray.init(num_cpus=2, num_gpus=exec_config.gpus, logging_level=logging.CRITICAL,
              ignore_reinit_error=True)
 
     study = optuna.create_study(direction="minimize", pruner=pruner)
