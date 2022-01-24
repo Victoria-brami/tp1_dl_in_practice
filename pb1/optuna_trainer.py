@@ -73,13 +73,13 @@ class LightningNet(pl.LightningModule):
 
     def configure_datasets(self):
         # Define Train, Val and Test Datasets
-        self.dataset = torchvision.datasets.USPS(root='../../TP1/USPS/',
+        self.dataset = torchvision.datasets.USPS(root=args.data_dir,
                                             train=True,
                                             transform=transforms.ToTensor(),
                                             download=False)
         self.train_set, self.val_set = random_split(self.dataset, [6000, 1291])
 
-        self.test_set = torchvision.datasets.USPS(root='../../TP1/USPS/',
+        self.test_set = torchvision.datasets.USPS(root=args.data_dir,
                                                      train=False,
                                                      transform=transforms.ToTensor(),
                                                      download=False)
@@ -116,13 +116,13 @@ class LightningNet(pl.LightningModule):
 
 
     def train_dataloader(self):
-        return DataLoader(self.train_set, self.batch_size, shuffle=True, num_workers=2)
+        return DataLoader(self.train_set, self.batch_size, shuffle=True, num_workers=4)
 
     def val_dataloader(self):
-        return DataLoader(self.val_set, self.batch_size, shuffle=False, num_workers=2)
+        return DataLoader(self.val_set, self.batch_size, shuffle=False, num_workers=4)
 
     def test_dataloader(self):
-        return DataLoader(self.test_set, self.batch_size, shuffle=False, num_workers=2)
+        return DataLoader(self.test_set, self.batch_size, shuffle=False, num_workers=4)
 
 
     def training_step(self, batch, batch_idx):

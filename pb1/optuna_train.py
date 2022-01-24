@@ -1,4 +1,3 @@
-
 import sys
 sys.path.append("/c/Users/Victoria/Documents/Victoria/enpc/3A/MVA/S2/deep_learning_in_practice/tp1_dl_in_practice/pb1")
 
