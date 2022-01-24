@@ -1,6 +1,5 @@
 import torch.nn as nn
 import pytorch_lightning as pl
-from pytorch_lightning import Callback
 from optuna.integration import PyTorchLightningPruningCallback
 import torch
 from torch.optim import Adam, SGD, AdamW
@@ -8,19 +7,17 @@ from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
 from pb1.model import Net, build_config
 import torchvision
-
+from pb1.parser import parser
 import pb1.optuna_config as cfg
 import joblib
-import optuna
 
-from torch.utils.data.dataset import Dataset
-import os
 
+args = parser()
 
 
 exec_config = cfg.ExecutionConfig()
-optuna_config = cfg.OptunaConfig()
-net_config = cfg.NetConfig()
+optuna_config = cfg.OptunaConfig(args=args)
+net_config = cfg.NetConfig(args=args)
 
 
 def dump_study_callback(study, trial):
