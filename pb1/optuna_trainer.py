@@ -5,10 +5,10 @@ import torch
 from torch.optim import Adam, SGD, AdamW
 from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
-from pb1.model import Net, build_config
+from model import Net, build_config
 import torchvision
-from pb1.parser import parser
-import pb1.optuna_config as cfg
+from arg_parser import parser
+import optuna_config as cfg
 import joblib
 
 
@@ -105,8 +105,8 @@ class LightningNet(pl.LightningModule):
             chosen_weight_decay = optuna_config.default_weight_decay
 
         # Optimiser suggestion
-        if optuna_config.suggest_optimiser is not None:  # choosing optimiser in the given list
-            chosen_optimiser = self.trial.suggest_categorical("optimizer", optuna_config.suggest_optimiser)
+        if optuna_config.suggest_optimizer is not None:  # choosing optimiser in the given list
+            chosen_optimiser = self.trial.suggest_categorical("optimizer", optuna_config.suggest_optimizer)
             if chosen_optimiser == 'Adam':
                 return Adam(self.model.parameters(), lr=chosen_lr, weight_decay=chosen_weight_decay)
             elif chosen_optimiser == 'SGD':

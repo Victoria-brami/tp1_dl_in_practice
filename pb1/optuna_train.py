@@ -1,6 +1,11 @@
+
+import sys
+sys.path.append("/c/Users/Victoria/Documents/Victoria/enpc/3A/MVA/S2/deep_learning_in_practice/tp1_dl_in_practice/pb1")
+
 import ray
 import logging
-from pb1.optuna_trainer import *
+import optuna
+from optuna_trainer import *
 
 def main():
     if optuna_config.pruner == 'Hyperband':
@@ -18,7 +23,7 @@ def main():
     ray.init(num_cpus=2, num_gpus=exec_config.gpus, logging_level=logging.CRITICAL,
              ignore_reinit_error=True)
 
-    study = optuna.create_study(direction="minimize", pruner=pruner)
+    study = optuna.create_study(direction="maximize", pruner=pruner)
     study.optimize(objective, n_trials=optuna_config.n_trials, timeout=optuna_config.timeout,
                    callbacks=[dump_study_callback], n_jobs=optuna_config.n_jobs)
 

@@ -1,7 +1,7 @@
 import json
 import numpy as np
 
-with open("pb1/net_configs.json", 'r') as json_file:
+with open("net_configs.json", 'r') as json_file:
     LIST_MODEL_CONFIGS = json.load(json_file)
 
 class ExecutionConfig(object):
