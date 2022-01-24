@@ -1,26 +1,23 @@
 import torch.nn as nn
 import pytorch_lightning as pl
-from pytorch_lightning import Callback
 from optuna.integration import PyTorchLightningPruningCallback
 import torch
 from torch.optim import Adam, SGD, AdamW
 from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
-from pb1.model import Net, build_config
+from model import Net, build_config
 import torchvision
-
-import pb1.optuna_config as cfg
+from arg_parser import parser
+import optuna_config as cfg
 import joblib
-import optuna
 
-from torch.utils.data.dataset import Dataset
-import os
 
+args = parser()
 
 
 exec_config = cfg.ExecutionConfig()
-optuna_config = cfg.OptunaConfig()
-net_config = cfg.NetConfig()
+optuna_config = cfg.OptunaConfig(args=args)
+net_config = cfg.NetConfig(args=args)
 
 
 def dump_study_callback(study, trial):
@@ -76,13 +73,13 @@ class LightningNet(pl.LightningModule):
 
     def configure_datasets(self):
         # Define Train, Val and Test Datasets
-        self.dataset = torchvision.datasets.USPS(root='../../TP1/USPS/',
+        self.dataset = torchvision.datasets.USPS(root=args.data_dir,
                                             train=True,
                                             transform=transforms.ToTensor(),
                                             download=False)
         self.train_set, self.val_set = random_split(self.dataset, [6000, 1291])
 
-        self.test_set = torchvision.datasets.USPS(root='../../TP1/USPS/',
+        self.test_set = torchvision.datasets.USPS(root=args.data_dir,
                                                      train=False,
                                                      transform=transforms.ToTensor(),
                                                      download=False)
@@ -108,8 +105,8 @@ class LightningNet(pl.LightningModule):
             chosen_weight_decay = optuna_config.default_weight_decay
 
         # Optimiser suggestion
-        if optuna_config.suggest_optimiser is not None:  # choosing optimiser in the given list
-            chosen_optimiser = self.trial.suggest_categorical("optimizer", optuna_config.suggest_optimiser)
+        if optuna_config.suggest_optimizer is not None:  # choosing optimiser in the given list
+            chosen_optimiser = self.trial.suggest_categorical("optimizer", optuna_config.suggest_optimizer)
             if chosen_optimiser == 'Adam':
                 return Adam(self.model.parameters(), lr=chosen_lr, weight_decay=chosen_weight_decay)
             elif chosen_optimiser == 'SGD':
@@ -119,13 +116,13 @@ class LightningNet(pl.LightningModule):
 
 
     def train_dataloader(self):
-        return DataLoader(self.train_set, self.batch_size, shuffle=True, num_workers=2)
+        return DataLoader(self.train_set, self.batch_size, shuffle=True, num_workers=4)
 
     def val_dataloader(self):
-        return DataLoader(self.val_set, self.batch_size, shuffle=False, num_workers=2)
+        return DataLoader(self.val_set, self.batch_size, shuffle=False, num_workers=4)
 
     def test_dataloader(self):
-        return DataLoader(self.test_set, self.batch_size, shuffle=False, num_workers=2)
+        return DataLoader(self.test_set, self.batch_size, shuffle=False, num_workers=4)
 
 
     def training_step(self, batch, batch_idx):
