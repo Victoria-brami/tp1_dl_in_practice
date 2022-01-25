@@ -5,7 +5,7 @@ import torch
 from torch.optim import Adam, SGD, AdamW
 from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
-from model import Net, build_config
+from model import *
 import torchvision
 from arg_parser import parser
 import optuna_config as cfg
@@ -18,6 +18,8 @@ args = parser()
 exec_config = cfg.ExecutionConfig()
 optuna_config = cfg.OptunaConfig(args=args)
 net_config = cfg.NetConfig(args=args)
+
+LIST_MODELS = {"11": Conv1Lin1Net(), "12":Conv1Lin2Net(), "21":Conv2Lin1Net(), "22":Conv2Lin2Net(), "31":Conv3Lin1Net(), "32":Conv3Lin2Net()}
 
 
 def dump_study_callback(study, trial):
@@ -51,8 +53,17 @@ class LightningNet(pl.LightningModule):
             chosen_linear_layers = self.trial.suggest_categorical("Linear layers", net_config.suggest_linear_layers)
         else:
             chosen_linear_layers = net_config.default_linear_layers
-        config = build_config(chosen_act, chosen_conv_layers, chosen_linear_layers)
-        self.model = Net(config=config)
+        if net_config.suggest_dropout is not None:
+            chosen_dropout = self.trial.suggest_categorical("dropout", net_config.suggest_dropout)
+        else:
+            chosen_dropout = net_config.default_dropout
+        config = build_config(chosen_act, chosen_conv_layers, chosen_linear_layers, chosen_dropout)
+        if net_config.suggest_model is not None:
+            chosen_model = self.trial.suggest_categorical("model", net_config.suggest_model)
+        else:
+            chosen_model = net_config.default_model
+        self.model = LIST_MODELS[chosen_model]
+        #self.model = Net(config=config)
 
     def configure_loss(self):
         # Loss choice
@@ -60,6 +71,8 @@ class LightningNet(pl.LightningModule):
             chosen_loss = self.trial.suggest_categorical("Loss", optuna_config.suggest_loss)
         else:
             chosen_loss = optuna_config.default_loss
+
+        self.loss_name = chosen_loss
         if chosen_loss.lower() == 'bce':
             self.loss = nn.BCELoss()
         elif chosen_loss.lower() == 'l1':
@@ -107,12 +120,18 @@ class LightningNet(pl.LightningModule):
         # Optimiser suggestion
         if optuna_config.suggest_optimizer is not None:  # choosing optimiser in the given list
             chosen_optimiser = self.trial.suggest_categorical("optimizer", optuna_config.suggest_optimizer)
-            if chosen_optimiser == 'Adam':
-                return Adam(self.model.parameters(), lr=chosen_lr, weight_decay=chosen_weight_decay)
-            elif chosen_optimiser == 'SGD':
-                return SGD(self.model.parameters(), lr=chosen_lr, weight_decay=chosen_weight_decay)
+        else:
+            chosen_optimiser = optuna_config.default_optimizer
+        print("\n \n    Chosen Optimizer: {} \n \n".format(chosen_optimiser))
+        if chosen_optimiser.lower() == 'adam':
+            return Adam(self.model.parameters(), lr=chosen_lr, weight_decay=chosen_weight_decay)
+        elif chosen_optimiser.lower() == 'sgd':
+            return SGD(self.model.parameters(), lr=chosen_lr, weight_decay=chosen_weight_decay)
+        elif chosen_optimiser.lower() == 'rmsprop':
+            return torch.optim.RMSprop(self.model.parameters(), lr=chosen_lr, weight_decay=chosen_weight_decay)
         else:  # hard-coded default to Adam
             return AdamW(self.model.parameters(), lr=chosen_lr, weight_decay=chosen_weight_decay)
+
 
 
     def train_dataloader(self):
@@ -129,9 +148,13 @@ class LightningNet(pl.LightningModule):
         image, target = batch
         output = self.model(image)
         batch_size = target.shape[0]
-        labels_one_hot = torch.FloatTensor(batch_size, self.model.num_classes)
-        labels_one_hot.zero_()
-        labels_one_hot.scatter_(1, target.view(-1, 1), 1)
+
+        if self.loss_name != 'cross_entropy':
+            labels_one_hot = torch.FloatTensor(batch_size, self.model.num_classes)
+            labels_one_hot.zero_()
+            labels_one_hot.scatter_(1, target.view(-1, 1), 1)
+        else:
+            labels_one_hot = target
         return self.loss(output, labels_one_hot)
 
     def validation_step(self, batch, batch_idx):
