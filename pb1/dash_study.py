@@ -13,7 +13,7 @@ from plotly.subplots import make_subplots
 
 def get_layout():
     try:
-        study = joblib.load('study_optimizer.pkl')
+        study = joblib.load('study_model.pkl')
     except FileNotFoundError:
         return html.Div(children=[dcc.Markdown(children='''
         ### Optuna Study Dashboard
