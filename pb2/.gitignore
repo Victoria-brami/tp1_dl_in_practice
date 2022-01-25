@@ -1,0 +1,5 @@
+*.pkl
+lightning_logs/
+sbatchs/
+*/out/
+__pycache__/
