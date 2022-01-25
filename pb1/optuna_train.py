@@ -39,7 +39,7 @@ def main():
         print("    {}: {}".format(key, value))
 
     # dumps the study for use with dash_study.py
-    joblib.dump(study, 'study.pkl')
+    joblib.dump(study, 'study_model.pkl')
 
 
 if __name__ == "__main__":
